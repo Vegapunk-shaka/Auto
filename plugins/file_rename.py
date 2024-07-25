@@ -75,7 +75,7 @@ episode_number = extract_episode_number(filename)
 print(f"Extracted Episode Number: {episode_number}")
 
 # Thread pool executor
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
 # Download function
 def download_media(client, message, file_path, download_msg):
@@ -267,9 +267,3 @@ async def auto_rename_files(client, message):
             os.remove(metadata_path)
 
         del renaming_operations[file_id]
-
-# Add your other functions and handlers here...
-
-if __name__ == "__main__":
-    app = Client("my_bot", api_id=Config.API_ID, api_hash=Config.API_HASH, bot_token=Config.BOT_TOKEN)
-    app.run()

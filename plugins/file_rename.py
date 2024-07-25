@@ -1,6 +1,8 @@
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
-from pyrogram.types import InputMediaDocument, Message 
+from pyrogram.types import InputMediaDocument, Message
 from PIL import Image
 from datetime import datetime
 from hachoir.metadata import extractMetadata
@@ -17,128 +19,112 @@ import re
 
 renaming_operations = {}
 
+# EPISODE PATTERNS
 # Pattern 1: S01E02 or S01EP02
 pattern1 = re.compile(r'S(\d+)(?:E|EP)(\d+)')
 # Pattern 2: S01 E02 or S01 EP02 or S01 - E01 or S01 - EP02
 pattern2 = re.compile(r'S(\d+)\s*(?:E|EP|-\s*EP)(\d+)')
 # Pattern 3: Episode Number After "E" or "EP"
 pattern3 = re.compile(r'(?:[([<{]?\s*(?:E|EP)\s*(\d+)\s*[)\]>}]?)')
-# Pattern 3_2: episode number after - [hyphen]
+# Pattern 3_2: Episode number after hyphen
 pattern3_2 = re.compile(r'(?:\s*-\s*(\d+)\s*)')
-# Pattern 4: S2 09 ex.
+# Pattern 4: S2 09 example
 pattern4 = re.compile(r'S(\d+)[^\d]*(\d+)', re.IGNORECASE)
 # Pattern X: Standalone Episode Number
 patternX = re.compile(r'(\d+)')
-#QUALITY PATTERNS 
-# Pattern 5: 3-4 digits before 'p' as quality
-pattern5 = re.compile(r'\b(?:.*?(\d{3,4}[^\dp]*p).*?|.*?(\d{3,4}p))\b', re.IGNORECASE)
-# Pattern 6: Find 4k in brackets or parentheses
-pattern6 = re.compile(r'[([<{]?\s*4k\s*[)\]>}]?', re.IGNORECASE)
-# Pattern 7: Find 2k in brackets or parentheses
-pattern7 = re.compile(r'[([<{]?\s*2k\s*[)\]>}]?', re.IGNORECASE)
-# Pattern 8: Find HdRip without spaces
-pattern8 = re.compile(r'[([<{]?\s*HdRip\s*[)\]>}]?|\bHdRip\b', re.IGNORECASE)
-# Pattern 9: Find 4kX264 in brackets or parentheses
-pattern9 = re.compile(r'[([<{]?\s*4kX264\s*[)\]>}]?', re.IGNORECASE)
-# Pattern 10: Find 4kx265 in brackets or parentheses
-pattern10 = re.compile(r'[([<{]?\s*4kx265\s*[)\]>}]?', re.IGNORECASE)
+
+# QUALITY PATTERNS
+# Combined pattern to find 3-4 digits before 'p', '4k', '2k', 'HdRip', '4kX264', '4kx265'
+quality_patterns = [
+    re.compile(r'\b(?:.*?(\d{3,4}[^\dp]*p).*?|.*?(\d{3,4}p))\b', re.IGNORECASE),
+    re.compile(r'[([<{]?\s*4k\s*[)\]>}]?', re.IGNORECASE),
+    re.compile(r'[([<{]?\s*2k\s*[)\]>}]?', re.IGNORECASE),
+    re.compile(r'[([<{]?\s*HdRip\s*[)\]>}]?|\bHdRip\b', re.IGNORECASE),
+    re.compile(r'[([<{]?\s*4kX264\s*[)\]>}]?', re.IGNORECASE),
+    re.compile(r'[([<{]?\s*4kx265\s*[)\]>}]?', re.IGNORECASE),
+]
 
 def extract_quality(filename):
-    # Try Quality Patterns
-    match5 = re.search(pattern5, filename)
-    if match5:
-        print("Matched Pattern 5")
-        quality5 = match5.group(1) or match5.group(2)  # Extracted quality from both patterns
-        print(f"Quality: {quality5}")
-        return quality5
-
-    match6 = re.search(pattern6, filename)
-    if match6:
-        print("Matched Pattern 6")
-        quality6 = "4k"
-        print(f"Quality: {quality6}")
-        return quality6
-
-    match7 = re.search(pattern7, filename)
-    if match7:
-        print("Matched Pattern 7")
-        quality7 = "2k"
-        print(f"Quality: {quality7}")
-        return quality7
-
-    match8 = re.search(pattern8, filename)
-    if match8:
-        print("Matched Pattern 8")
-        quality8 = "HdRip"
-        print(f"Quality: {quality8}")
-        return quality8
-
-    match9 = re.search(pattern9, filename)
-    if match9:
-        print("Matched Pattern 9")
-        quality9 = "4kX264"
-        print(f"Quality: {quality9}")
-        return quality9
-
-    match10 = re.search(pattern10, filename)
-    if match10:
-        print("Matched Pattern 10")
-        quality10 = "4kx265"
-        print(f"Quality: {quality10}")
-        return quality10    
-
-    # Return "Unknown" if no pattern matches
-    unknown_quality = "Unknown"
-    print(f"Quality: {unknown_quality}")
-    return unknown_quality
-    
+    for pattern in quality_patterns:
+        match = re.search(pattern, filename)
+        if match:
+            quality = match.group(1) or match.group(0).strip('()[]{}<>' + ' \t\n\r')  # Extract quality
+            print(f"Matched Quality Pattern: {pattern.pattern}")
+            print(f"Quality: {quality}")
+            return quality
+    print("Quality: Unknown")
+    return "Unknown"
 
 def extract_episode_number(filename):    
-    # Try Pattern 1
-    match = re.search(pattern1, filename)
-    if match:
-        print("Matched Pattern 1")
-        return match.group(2)  # Extracted episode number
+    episode_patterns = [pattern1, pattern2, pattern3, pattern3_2, pattern4, patternX]
     
-    # Try Pattern 2
-    match = re.search(pattern2, filename)
-    if match:
-        print("Matched Pattern 2")
-        return match.group(2)  # Extracted episode number
-
-    # Try Pattern 3
-    match = re.search(pattern3, filename)
-    if match:
-        print("Matched Pattern 3")
-        return match.group(1)  # Extracted episode number
-
-    # Try Pattern 3_2
-    match = re.search(pattern3_2, filename)
-    if match:
-        print("Matched Pattern 3_2")
-        return match.group(1)  # Extracted episode number
-        
-    # Try Pattern 4
-    match = re.search(pattern4, filename)
-    if match:
-        print("Matched Pattern 4")
-        return match.group(2)  # Extracted episode number
-
-    # Try Pattern X
-    match = re.search(patternX, filename)
-    if match:
-        print("Matched Pattern X")
-        return match.group(1)  # Extracted episode number
-        
-    # Return None if no pattern matches
+    for pattern in episode_patterns:
+        match = re.search(pattern, filename)
+        if match:
+            episode_number = match.group(2) if pattern in [pattern1, pattern2, pattern4] else match.group(1)
+            print(f"Matched Episode Pattern: {pattern.pattern}")
+            print(f"Episode Number: {episode_number}")
+            return episode_number
+    
+    print("Episode Number: None")
     return None
 
-# Example Usage:
+# Example Usage
 filename = "Naruto Shippuden S01 - EP07 - 1080p [Dual Audio] @Madflix_Bots.mkv"
 episode_number = extract_episode_number(filename)
 print(f"Extracted Episode Number: {episode_number}")
 
-# Inside the handler for file uploads
+# Thread pool executor
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+
+# Download function
+def download_media(client, message, file_path, download_msg):
+    try:
+        path = client.download_media(
+            message=message,
+            file_name=file_path,
+            progress=progress_for_pyrogram,
+            progress_args=("Download Started....", download_msg, time.time())
+        )
+        return path
+    except Exception as e:
+        return str(e)
+
+# Upload function
+def upload_media(client, message, metadata_path, ph_path, caption, media_type, duration, upload_msg):
+    try:
+        if media_type == "document":
+            client.send_document(
+                message.chat.id,
+                document=metadata_path,
+                thumb=ph_path,
+                caption=caption,
+                progress=progress_for_pyrogram,
+                progress_args=("Upload Started.....", upload_msg, time.time())
+            )
+        elif media_type == "video":
+            client.send_video(
+                message.chat.id,
+                video=metadata_path,
+                caption=caption,
+                thumb=ph_path,
+                duration=duration,
+                progress=progress_for_pyrogram,
+                progress_args=("Upload Started.....", upload_msg, time.time())
+            )
+        elif media_type == "audio":
+            client.send_audio(
+                message.chat.id,
+                audio=metadata_path,
+                caption=caption,
+                thumb=ph_path,
+                duration=duration,
+                progress=progress_for_pyrogram,
+                progress_args=("Upload Started.....", upload_msg, time.time())
+            )
+    except Exception as e:
+        return str(e)
+
 @Client.on_message(filters.private & (filters.document | filters.video | filters.audio))
 async def auto_rename_files(client, message):
     user_id = message.from_user.id
@@ -153,98 +139,85 @@ async def auto_rename_files(client, message):
     if message.document:
         file_id = message.document.file_id
         file_name = message.document.file_name
-        media_type = media_preference or "document"  # Use preferred media type or default to document
+        media_type = media_preference or "document"
     elif message.video:
         file_id = message.video.file_id
         file_name = f"{message.video.file_name}.mkv"
-        media_type = media_preference or "video"  # Use preferred media type or default to video
+        media_type = media_preference or "video"
     elif message.audio:
         file_id = message.audio.file_id
         file_name = f"{message.audio.file_name}.mp3"
-        media_type = media_preference or "audio"  # Use preferred media type or default to audio
+        media_type = media_preference or "audio"
     else:
         return await message.reply_text("Unsupported File Type")
 
     print(f"Original File Name: {file_name}")
 
-
-
-    
-    
-
-# Check whether the file is already being renamed or has been renamed recently
+    # Check if the file is being renamed
     if file_id in renaming_operations:
         elapsed_time = (datetime.now() - renaming_operations[file_id]).seconds
         if elapsed_time < 10:
             print("File is being ignored as it is currently being renamed or was renamed recently.")
-            return  # Exit the handler if the file is being ignored
+            return
 
-    # Mark the file as currently being renamed
     renaming_operations[file_id] = datetime.now()
 
-    # Extract episode number and qualities
     episode_number = extract_episode_number(file_name)
-    
     print(f"Extracted Episode Number: {episode_number}")
-    
+
     if episode_number:
         placeholders = ["episode", "Episode", "EPISODE", "{episode}"]
         for placeholder in placeholders:
             format_template = format_template.replace(placeholder, str(episode_number), 1)
-            
-        # Add extracted qualities to the format template
+        
         quality_placeholders = ["quality", "Quality", "QUALITY", "{quality}"]
         for quality_placeholder in quality_placeholders:
             if quality_placeholder in format_template:
                 extracted_qualities = extract_quality(file_name)
                 if extracted_qualities == "Unknown":
                     await message.reply_text("I Was Not Able To Extract The Quality Properly. Renaming As 'Unknown'...")
-                    # Mark the file as ignored
                     del renaming_operations[file_id]
-                    return  # Exit the handler if quality extraction fails
+                    return
                 
-                format_template = format_template.replace(quality_placeholder, "".join(extracted_qualities))           
-            
+                format_template = format_template.replace(quality_placeholder, "".join(extracted_qualities))
+
         _, file_extension = os.path.splitext(file_name)
         new_file_name = f"{format_template}{file_extension}"
         file_path = f"downloads/{new_file_name}"
         file = message
 
         download_msg = await message.reply_text(text="Trying To Download.....")
-        try:
-            path = await client.download_media(message=file, file_name=file_path, progress=progress_for_pyrogram, progress_args=("Download Started....", download_msg, time.time()))
-        except Exception as e:
-            # Mark the file as ignored
+        
+        # Use the thread pool for downloading
+        download_future = executor.submit(download_media, client, message, file_path, download_msg)
+        path = download_future.result()
+        
+        if isinstance(path, str) and "Error" in path:
             del renaming_operations[file_id]
-            return await download_msg.edit(e)
-            # Creating Directory for Metadata
+            return await download_msg.edit(path)
+
         if not os.path.isdir("Metadata"):
             os.mkdir("Metadata")
 
         _bool_metadata = await madflixbotz.get_metadata(message.chat.id)
-        if (_bool_metadata):
+        if _bool_metadata:
             metadata_path = f"Metadata/{new_file_name}"
             metadata = await madflixbotz.get_metadata_code(message.chat.id)
             if metadata:
-
-                await download_msg.edit("I Fᴏᴜɴᴅ Yᴏᴜʀ Mᴇᴛᴀᴅᴀᴛᴀ\n\n__**Aᴅᴅɪɴɢ Mᴇᴛᴀᴅᴀᴛᴀ Tᴏ Fɪʟᴇ....**")
-                cmd = f"""ffmpeg -i "{path}"  -map 0 -c:s copy -c:a copy -c:v copy -metadata title="{metadata}" -metadata author="{metadata}" -metadata:s:s title="{metadata}" -metadata:s:a title="{metadata}" -metadata:s:v title="{metadata}"  "{metadata_path}" """
-
+                await download_msg.edit("I Found Your Metadata\n\n__**Adding Metadata To File....**")
+                cmd = f"""ffmpeg -i "{path}" -map 0 -c:s copy -c:a copy -c:v copy -metadata title="{metadata}" -metadata author="{metadata}" -metadata:s:s title="{metadata}" -metadata:s:a title="{metadata}" -metadata:s:v title="{metadata}" "{metadata_path}" """
+                
                 process = await asyncio.create_subprocess_shell(
                     cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
-
                 stdout, stderr = await process.communicate()
                 er = stderr.decode()
+                if er:
+                    return await download_msg.edit(str(er) + "\n\n**Error**")
 
-                try:
-                    if er:
-                        return await download_msg.edit(str(er) + "\n\n**Error**")
-                except BaseException:
-                    pass
-            await download_msg.edit("**Metadata added to the file successfully ✅**\n\n⚠️ __**Tʀyɪɴɢ Tᴏ Uᴩʟᴏᴀᴅɪɴɢ....**")
+            await download_msg.edit("**Metadata added to the file successfully ✅**\n\n⚠️ __**Trying To Uploading....**")
         else:
-            await download_msg.edit("⚠️  __**Please wait...**__\n\n\n**Tʀyɪɴɢ Tᴏ Uᴩʟᴏᴀᴅɪɴɢ....**")
+            await download_msg.edit("⚠️  __**Please wait...**__\n\n\n**Trying To Uploading....**")
 
         duration = 0
         try:
@@ -266,8 +239,7 @@ async def auto_rename_files(client, message):
             try:
                 caption = c_caption.format(filename=new_file_name, filesize=humanbytes(media.file_size), duration=convert(duration))
             except Exception as e:
-                return await download_msg.edit(text=f"Yᴏᴜʀ Cᴀᴩᴛɪᴏɴ Eʀʀᴏʀ Exᴄᴇᴩᴛ Kᴇyᴡᴏʀᴅ Aʀɢᴜᴍᴇɴᴛ ●> ({e})")    
-            
+                return await download_msg.edit(text=f"Your Caption Error Except Keyword Argument ●> ({e})")
         else:
             caption = f"**{new_file_name}**"
 
@@ -281,61 +253,23 @@ async def auto_rename_files(client, message):
             Image.open(ph_path).convert("RGB").save(ph_path)
             img = Image.open(ph_path)
             img.resize((1280, 720))
-            img.save(ph_path, "JPEG")    
+            img.save(ph_path, "JPEG")
+
+        # Use the thread pool for uploading
+        upload_future = executor.submit(upload_media, client, message, metadata_path, ph_path, caption, media_type, duration, upload_msg)
+        upload_future.result()
         
-
-        try:
-            type = media_type  # Use 'media_type' variable instead
-            if type == "document":
-                await client.send_document(
-                    message.chat.id,
-                    document=metadata_path,
-                    thumb=ph_path,
-                    caption=caption,
-                    progress=progress_for_pyrogram,
-                    progress_args=("Upload Started.....", upload_msg, time.time())
-                )
-            elif type == "video":
-                await client.send_video(
-                    message.chat.id,
-                    video=metadata_path,
-                    caption=caption,
-                    thumb=ph_path,
-                    duration=duration,
-                    progress=progress_for_pyrogram,
-                    progress_args=("Upload Started.....", upload_msg, time.time())
-                )
-            elif type == "audio":
-                await client.send_audio(
-                    message.chat.id,
-                    audio=metadata_path,
-                    caption=caption,
-                    thumb=ph_path,
-                    duration=duration,
-                    progress=progress_for_pyrogram,
-                    progress_args=("Upload Started.....", upload_msg, time.time())
-                )
-        except Exception as e:
-            os.remove(file_path)
-            if ph_path:
-                os.remove(ph_path)
-            # Mark the file as ignored
-            return await upload_msg.edit(f"Error: {e}")
-
-        await download_msg.delete() 
+        await download_msg.delete()
         os.remove(file_path)
         if ph_path:
             os.remove(ph_path)
         if metadata_path:
             os.remove(metadata_path)
 
-# Remove the entry from renaming_operations after successful renaming
         del renaming_operations[file_id]
 
+# Add your other functions and handlers here...
 
-
-
-# Jishu Developer 
-# Don't Remove Credit 🥺
-# Telegram Channel @Madflix_Bots
-# Developer @JishuDeveloper
+if __name__ == "__main__":
+    app = Client("my_bot", api_id=Config.API_ID, api_hash=Config.API_HASH, bot_token=Config.BOT_TOKEN)
+    app.run()

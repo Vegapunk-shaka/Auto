@@ -301,4 +301,4 @@ async def auto_rename_files(client, message):
     await asyncio.gather(download_and_rename(client, message, format_template, file_id, file_name, file_path, new_file_name))
 
 # Run the Client
-app.run()
+#app.run()

@@ -9,5 +9,5 @@ pytz
 psutil
 pyromod
 asyncio
-hydrogram
+#hydrogram
 pyrofork

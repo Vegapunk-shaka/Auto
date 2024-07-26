@@ -26,7 +26,7 @@ class Bot(Client):
         self.mention = me.mention
         self.username = me.username
         self.uptime = Config.BOT_UPTIME
-        
+
         if Config.WEBHOOK:
             app = web.AppRunner(await web_server())
             await app.setup()

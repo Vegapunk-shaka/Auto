@@ -10,3 +10,4 @@ psutil
 pyromod
 asyncio
 hydrogram
+pyrofork

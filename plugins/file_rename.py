@@ -11,7 +11,7 @@ from config import Config
 import asyncio
 import os
 import time
-
+import re
 # Dictionary to track renaming operations
 renaming_operations = {}
 

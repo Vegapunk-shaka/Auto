@@ -5,18 +5,18 @@ class Config(object):
     # pyro client config
     API_ID    = os.environ.get("API_ID", "20524455")
     API_HASH  = os.environ.get("API_HASH", "03f1c29714a7ce9ed1819318427ea281")
-    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7060809137:AAHwyRNaWIdo58QTeFeE2Vs9gzT89pwoq3M") 
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7566985874:AAFZhUrL5coVfA-0jTzlgX8ryCZLsZADYtU") 
 
     # database config
-    DB_NAME = os.environ.get("DB_NAME","madflixbotz")     
-    DB_URL  = os.environ.get("DB_URL","mongodb+srv://sanjitha:sanjitha01@cluster0.psghgex.mongodb.net/?retryWrites=true&w=majority")
+    DB_NAME = os.environ.get("DB_NAME","autorename")     
+    DB_URL  = os.environ.get("DB_URL","mongodb+srv://slac:slac@usrbot.9d549xh.mongodb.net/?retryWrites=true&w=majority&appName=Usrbot")
  
     # other configs
     BOT_UPTIME  = time.time()
     START_PIC   = os.environ.get("START_PIC", "https://graph.org/file/5f1d626870b2b46a1c22e.png")
     ADMIN       = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMIN', '1908235162').split()]
-    FORCE_SUB   = os.environ.get("FORCE_SUB", "Anime_Alchemy") 
-    LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", "-1001802445568"))
+    FORCE_SUB   = os.environ.get("FORCE_SUB", "Unmesh_Medical") 
+    LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", "-1001930986503"))
     
     # wes response configuration     
     WEBHOOK = bool(os.environ.get("WEBHOOK", "True"))

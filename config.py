@@ -5,7 +5,7 @@ class Config(object):
     # pyro client config
     API_ID    = os.environ.get("API_ID", "20524455")
     API_HASH  = os.environ.get("API_HASH", "03f1c29714a7ce9ed1819318427ea281")
-    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7566985874:AAFZhUrL5coVfA-0jTzlgX8ryCZLsZADYtU") 
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "7473386163:AAGAo0hN4i9Untye-zB_NEY3084LJNKS7QY") 
 
     # database config
     DB_NAME = os.environ.get("DB_NAME","autorename")     
@@ -14,7 +14,7 @@ class Config(object):
     # other configs
     BOT_UPTIME  = time.time()
     START_PIC   = os.environ.get("START_PIC", "https://graph.org/file/5f1d626870b2b46a1c22e.png")
-    ADMIN       = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMIN', '1908235162').split()]
+    ADMIN       = [int(admin) if id_pattern.search(admin) else admin for admin in os.environ.get('ADMIN', '7408278224').split()]
     FORCE_SUB   = os.environ.get("FORCE_SUB", "Unmesh_Medical") 
     LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", "-1001930986503"))
     
